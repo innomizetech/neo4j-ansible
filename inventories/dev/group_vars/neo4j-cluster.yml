@@ -1,0 +1,38 @@
+---
+# Variables here are applicable to neo4j-cluster group
+# Those variables only required when you want to launch EC2 instance(s) before installing Neo4j
+launch_ec2_instance: true
+region: ap-southeast-1
+keypair: key-pair.pem
+# Depend on the region variable
+ec2_url: https://ec2.ap-southeast-1.amazonaws.com
+instance_type: t2.micro
+instance_name_tag_az1: Neo4J-AZ1-DEV
+instance_name_tag_az2: Neo4J-AZ2-DEV
+haproxy_instance_name_tag: Neo4J-HA-PROXY-DEV
+# Specify a number of nodes for Neo4j cluster, master will be auto elected
+az1_node_count: 2
+az2_node_count: 1
+# Allow public access on Neo54j nodes or not
+allow_public_access: yes
+online_backup: true
+# The address allowed to perform online backup (e.g. 0.0.0.0 for all interfaces)
+online_backup_address: 0.0.0.0:6362
+# The size of volume to be attached to neo and haproxy instances (in GB)
+volume_size: 50
+# Range between 3 x volume_size to 50 x volume_size
+volumn_iops: 500
+
+# HAProxy configuration
+install_haproxy: true
+ha_volume_size: 10
+stats_port: 8000
+
+template_file: neo4j.conf.j2
+# Neo4j enterprise version
+neo4j_version: 3.4.7
+# Apoc version must be compatible with neo4j version
+# See the map at https://github.com/neo4j-contrib/neo4j-apoc-procedures#version-compatibility-matrix
+apoc_version: 3.4.0.3
+# Neo4j HA pull interval (in seconds)
+pull_interval: 1

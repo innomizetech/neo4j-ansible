@@ -1,0 +1,5 @@
+[local]
+127.0.0.1
+
+# [neo4j]
+# neo4j.innomizetech.com ansible_port=22 ansible_host=10.208.22.135 ansible_user=neo4j

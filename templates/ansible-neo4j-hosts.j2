@@ -1,0 +1,31 @@
+[local]
+127.0.0.1
+
+[neo4j-cluster]
+{% for instance in ec2_az1.tagged_instances %}
+{% if allow_public_access %}
+{{ instance.public_ip }}
+{% else %}
+{{ instance.private_ip }}
+{% endif %}
+{% endfor %}
+{% if ec2_az2 is defined %}
+{% for instance in ec2_az2.tagged_instances %}
+{% if allow_public_access %}
+{{ instance.public_ip }}
+{% else %}
+{{ instance.private_ip }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+[haproxy]
+{% if ec2_ha.tagged_instances is defined %}
+{% for instance in ec2_ha.tagged_instances %}
+{% if allow_public_access %}
+{{ instance.public_ip }}
+{% else %}
+{{ instance.private_ip }}
+{% endif %}
+{% endfor %}
+{% endif %}

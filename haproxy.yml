@@ -1,0 +1,12 @@
+- hosts: haproxy
+  name: Install and configure HAproxy
+  user: ec2-user
+  become: yes
+  become_user: root
+  gather_facts: false
+  vars_files:
+    - 'inventories/{{env}}/group_vars/vault.yml'
+    - 'inventories/{{env}}/group_vars/neo4j-cluster.yml'
+  roles:
+    - role: haproxy
+      when: install_haproxy|bool

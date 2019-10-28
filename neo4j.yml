@@ -1,0 +1,37 @@
+- import_playbook: launch-ec2-neo4j.yml
+
+- hosts: neo4j-cluster
+  name: Install Neo4j HA Cluster
+  user: ec2-user
+  become: yes
+  become_user: root
+  gather_facts: true
+  # vars:
+  #   logs:
+  #     - file: /var/log/neo4j/neo4j.log
+  #       format: "%Y-%m-%d %H:%M:%S%f%z"
+  #       group_name: "/neo4j/logs/neo4j.log"
+  #       stream_name: "{instance_id}"
+  #       aws_region: '{{region}}'
+  #     - file: /var/log/neo4j/debug.log
+  #       format: "%Y-%m-%d %H:%M:%S%f%z"
+  #       group_name: "/neo4j/logs/debug.log"
+  #       stream_name: "{instance_id}"
+  #       aws_region: '{{region}}'
+  #     - file: /var/log/neo4j/security.log
+  #       format: "%Y-%m-%d %H:%M:%S%f%z"
+  #       group_name: "/neo4j/logs/security.log"
+  #       stream_name: "{instance_id}"
+  #       aws_region: '{{region}}'
+  #     - file: /var/log/neo4j/query.log
+  #       format: "%Y-%m-%d %H:%M:%S%f%z"
+  #       group_name: "/neo4j/logs/query.log"
+  #       stream_name: "{instance_id}"
+  #       aws_region: '{{region}}'
+  vars_files:
+    - 'inventories/{{env}}/group_vars/vault.yml'
+    - 'inventories/{{env}}/group_vars/neo4j-cluster.yml'
+  roles:
+    - role: neo4j
+    # Only compatible with Debian OS
+    # - role: dharrisio.aws-cloudwatch-logs-agent

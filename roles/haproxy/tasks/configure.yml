@@ -1,0 +1,20 @@
+- name: Report
+  local_action: debug msg="Start HAProxy"
+- name: Gather EC2 Metadata Information
+  action: ec2_metadata_facts
+- name: Copy haproxy.cfg to HAProxy instance
+  action: copy src=/tmp/haproxy.cfg dest=/etc/haproxy/haproxy.cfg
+- name: Start the HA Proxy Service
+  action: service name=haproxy state=restarted
+  async: 20
+  poll: 5
+- name: Wait for HAProxy to become available 
+  wait_for: 
+    port: '{{ stats_port }}'
+    timeout: 120
+- name: Display HAProxy URL
+  local_action: debug msg="HAProxy URL for Neo4j - http://{{ansible_ec2_public_hostname}}:{{stats_port}}/"
+  when: allow_public_access|bool
+- name: Display HAProxy URL
+  local_action: debug msg="HAProxy URL for Neo4j - http://{{ansible_ec2_local_ipv4}}:{{stats_port}}/"
+  when: not allow_public_access|bool

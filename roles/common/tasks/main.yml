@@ -1,0 +1,6 @@
+---
+# file: roles/common/tasks/main.yml
+
+- name: Update all packages
+  raw: yum update -y
+  retries: 3

@@ -1,0 +1,93 @@
+{%- macro initial_hosts() %}
+    {% set instances = ec2_az1.tagged_instances %}
+    {% if ec2_az2 is defined %}
+    {% set instances = instances | union(ec2_az2.tagged_instances) %}
+    {% endif %}
+
+    {% for instance in instances %}
+    server {{ instance.private_ip }} {{ instance.private_ip ~ ":7687"}} maxconn 32 check port 7474
+    {% endfor %}
+{%- endmacro %}
+
+global
+        log         127.0.0.1 local2
+
+        chroot      /var/lib/haproxy
+        pidfile     /var/run/haproxy.pid
+        user        haproxy
+        group       haproxy
+        daemon
+
+        stats socket /var/lib/haproxy/stats
+
+defaults
+        log     global
+
+        option  dontlognull        
+        option  redispatch
+
+        retries 3
+        maxconn 2000
+
+        timeout connect         30s
+        timeout client          2h
+        timeout server          2h
+        timeout check           5s
+
+# frontend http-in
+#        bind    *:7474
+#        mode    http
+#        option  forwardfor
+#
+#        acl elb_check url_beg /db/manage/server/ha/available
+#        acl no_slaves nbsrv(neo4j-slaves) eq 0
+#        acl master_methods method POST DELETE PUT
+#        acl slave_methods method GET
+#
+#        use_backend neo4j-nodes if elb_check
+#        use_backend current-master if master_methods
+#        use_backend current-master if no_slaves
+#        use_backend neo4j-slaves if slave_methods
+
+frontend neo4j-write
+        bind    *:7687
+        mode    tcp
+        default_backend current-master
+
+frontend neo4j-read
+        bind    *:7688
+        mode    tcp
+        default_backend neo4j-slaves
+
+backend current-master
+        mode    tcp
+        option  httpchk HEAD /db/manage/server/ha/master HTTP/1.0
+
+        {{ initial_hosts() }}
+
+backend neo4j-slaves
+        mode    tcp
+        balance roundrobin
+        option  httpchk HEAD /db/manage/server/ha/slave HTTP/1.0
+
+        {{ initial_hosts() }}
+
+backend neo4j-nodes
+        mode    http
+        option  forwardfor
+        balance roundrobin
+        option forwardfor
+        http-request set-header X-Forwarded-Port %[dst_port]
+        http-request add-header X-Forwarded-Proto https if { ssl_fc }
+        option httpchk GET /db/manage/server/ha/available HTTP/1.0
+
+        {{ initial_hosts() }}
+
+listen stats
+        bind *:{{ stats_port }}
+        mode    http
+        stats enable
+        stats uri /
+        stats auth {{ stats_user }}:{{ stats_pass }}
+        
+        

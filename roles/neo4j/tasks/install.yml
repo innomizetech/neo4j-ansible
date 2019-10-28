@@ -1,0 +1,23 @@
+- name: Remove old Java JDK 1.7 if any (for Amazon Linux)
+  yum: name=java-1.7.0-openjdk state=absent
+  ignore_errors: yes
+- name: Install Java JDK
+  yum:
+    name: java-1.8.0-openjdk
+    state: latest
+- name: Neo4j Repository Signing Key
+  rpm_key:
+    key: 'http://debian.neo4j.org/neotechnology.gpg.key'
+    state: present
+- name: Add neo4j repo
+  template:
+    src: ./templates/neo4j-repo.j2
+    dest: /etc/yum.repos.d/neo4j.repo
+- name: Fetch Java version (ensure Java is >= 1.8)
+  shell: java -version 2>&1 | grep version | awk '{print $3}' | sed 's/"//g'
+  register: java_version
+- assert:
+    that: 
+      - java_version.stdout | version_compare('1.8', '>=') 
+- name: Install Neo4j Enterprise
+  raw: 'NEO4J_ACCEPT_LICENSE_AGREEMENT=yes yum -y install neo4j-enterprise-{{ neo4j_version }}'

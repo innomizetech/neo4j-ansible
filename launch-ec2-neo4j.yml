@@ -1,0 +1,171 @@
+- hosts: local
+  name: Launch EC2 instances
+  connection: local
+  gather_facts: false
+  vars_files:
+    - 'inventories/{{env}}/group_vars/vault.yml'
+    - 'inventories/{{env}}/group_vars/neo4j-cluster.yml'
+  tasks:    
+    - name: Launch Neo4j cluster instances in az1
+      ec2:
+        key_name: '{{ keypair }}'
+        group_id: '{{ security_group }}'
+        instance_type: '{{ instance_type }}'
+        image: '{{ image }}'
+        vpc_subnet_id: '{{ vpc_az1_subnet_id }}'
+        wait: true
+        exact_count: '{{ az1_node_count }}'
+        volumes:
+          - device_name: /dev/xvda
+            volume_type: io1
+            volume_size: '{{ volume_size }}'
+            iops: '{{ volumn_iops }}'
+            delete_on_termination: true
+        monitoring: yes
+        instance_tags:
+          Name: '{{ instance_name_tag_az1 }}'
+          NeoAZ1: '{{ instance_name_tag_az1 }}'
+        count_tag: NeoAZ1
+        ec2_url: '{{ ec2_url }}'
+        aws_access_key: '{{ aws_access_key }}'
+        aws_secret_key: '{{ aws_secret_key }}'
+        assign_public_ip: '{{ allow_public_access|bool }}'
+        region: '{{ region }}'
+      register: ec2_az1
+    - name: >-
+        Add new instances to host group with public IPs, adding public IP and
+        AMI Launch Index as variables in az1
+      add_host:
+        name: '{{ item.public_ip }}'
+        groups: neo4j-cluster
+        private_ip: '{{ item.private_ip }}'
+        public_ip: '{{ item.public_ip }}'
+        hostname: '{{ item.public_dns_name }}'
+        ami_launch_index: '{{ item.ami_launch_index }}'
+      with_items: '{{ ec2_az1.tagged_instances }}'
+      when: allow_public_access|bool
+    - name: >-
+        Add new instances to host group with private IPs, adding private IP and
+        AMI Launch Index as variables in az1
+      add_host:
+        name: '{{ item.private_ip }}'
+        groups: neo4j-cluster
+        private_ip: '{{ item.private_ip }}'
+        public_ip: '{{ item.public_ip }}'
+        hostname: '{{ item.private_dns_name }}'
+        ami_launch_index: '{{ item.ami_launch_index }}'
+      with_items: '{{ ec2_az1.tagged_instances }}'
+      when: not allow_public_access|bool
+    - name: Launch Neo4j cluster instances in az2
+      ec2:
+        key_name: '{{ keypair }}'
+        group_id: '{{ security_group }}'
+        instance_type: '{{ instance_type }}'
+        image: '{{ image }}'
+        vpc_subnet_id: '{{ vpc_az2_subnet_id }}'
+        wait: true
+        exact_count: '{{ az2_node_count }}'
+        volumes:
+          - device_name: /dev/xvda
+            volume_type: io1
+            volume_size: '{{ volume_size }}'
+            iops: '{{ volumn_iops }}'
+            delete_on_termination: true
+        monitoring: yes
+        instance_tags:
+          Name: '{{ instance_name_tag_az2 }}'
+          NeoAZ2: '{{ instance_name_tag_az2 }}'
+        count_tag: NeoAZ2
+        ec2_url: '{{ ec2_url }}'
+        aws_access_key: '{{ aws_access_key }}'
+        aws_secret_key: '{{ aws_secret_key }}'
+        assign_public_ip: '{{ allow_public_access|bool }}'
+        region: '{{ region }}'
+      register: ec2_az2
+    - name: >-
+        Add new instances to host group with public IPs, adding public IP and
+        AMI Launch Index as variables in az2
+      add_host:
+        name: '{{ item.public_ip }}'
+        groups: neo4j-cluster
+        private_ip: '{{ item.private_ip }}'
+        public_ip: '{{ item.public_ip }}'
+        hostname: '{{ item.public_dns_name }}'
+        ami_launch_index: '{{ item.ami_launch_index }}'
+      with_items: '{{ ec2_az2.tagged_instances }}'
+      when: allow_public_access|bool
+    - name: >-
+        Add new instances to host group with private IPs, adding private IP and
+        AMI Launch Index as variables in az2
+      add_host:
+        name: '{{ item.private_ip }}'
+        groups: neo4j-cluster
+        private_ip: '{{ item.private_ip }}'
+        public_ip: '{{ item.public_ip }}'
+        hostname: '{{ item.private_dns_name }}'
+        ami_launch_index: '{{ item.ami_launch_index }}'
+      with_items: '{{ ec2_az2.tagged_instances }}'
+      when: not allow_public_access|bool
+    - name: Report
+      debug: msg="Cluster members launched."
+    - name: Launch HA Proxy instance
+      ec2:
+        key_name: '{{ keypair }}'
+        group_id: '{{ security_group }}'
+        instance_type: '{{ instance_type }}'
+        image: '{{ image }}'
+        vpc_subnet_id: '{{ vpc_az1_subnet_id }}'
+        wait: true
+        exact_count: 1
+        volumes:
+          - device_name: /dev/xvda
+            volume_type: gp2
+            volume_size: '{{ ha_volume_size }}'
+            delete_on_termination: true
+        monitoring: yes
+        instance_tags:
+          Name: '{{ haproxy_instance_name_tag }}'
+          neo4j-ha: '{{ haproxy_instance_name_tag }}'
+        count_tag: neo4j-ha
+        ec2_url: '{{ ec2_url }}'
+        aws_access_key: '{{ aws_access_key }}'
+        aws_secret_key: '{{ aws_secret_key }}'
+        region: '{{ region }}'
+        assign_public_ip: '{{ allow_public_access|bool }}'
+      register: ec2_ha
+      when: install_haproxy|bool
+    - name: Add instance to host group with public IPs
+      add_host:
+        name: '{{ item.public_ip }}'
+        groups: haproxy
+        private_ip: '{{ item.private_ip }}'
+        public_ip: '{{ item.public_ip }}'
+        hostname: '{{ item.public_dns_name }}'
+        ami_launch_index: '{{ item.ami_launch_index }}'
+      with_items: '{{ ec2_ha.tagged_instances }}'
+      when: allow_public_access|bool and install_haproxy|bool
+    - name: Add instance to host group with private IPs
+      add_host:
+        name: '{{ item.private_ip }}'
+        groups: haproxy
+        private_ip: '{{ item.private_ip }}'
+        public_ip: '{{ item.public_ip }}'
+        hostname: '{{ item.private_dns_name }}'
+        ami_launch_index: '{{ item.ami_launch_index }}'
+      with_items: '{{ ec2_ha.tagged_instances }}'
+      when: allow_public_access|bool and install_haproxy|bool
+    - name: Template the haproxy.cfg file save template for later
+      template:
+        src: ./templates/haproxy.cfg.j2
+        dest: /tmp/haproxy.cfg
+      when: install_haproxy|bool
+    - name: Template the ansible host file to use it later
+      template:
+        src: ./templates/ansible-neo4j-hosts.j2
+        dest: './inventories/{{env}}/auto-created-neo4j-hosts'
+    - name: Report
+      debug: msg="HA Proxy server launched."
+      when: install_haproxy|bool
+    - name: Wait for a while before trying to configure instances
+      pause:
+        seconds: 90

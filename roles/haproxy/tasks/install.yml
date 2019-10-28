@@ -1,0 +1,32 @@
+- name: Report
+  local_action: debug msg="Configuring haproxy instance with pre-req software..."
+- name: Ensure NTP is installed
+  yum:
+    name: ntp
+    state: latest
+- name: >-
+    Ensure less, socat, gcc, pcre-static, and pcre-devel packages are installed
+  yum:
+    name: '{{ item }}'
+    state: latest
+  with_items:
+    - less
+    - socat
+    - gcc 
+    - pcre-static
+    - pcre-devel
+- name: Ensure NTP is up and running
+  action: service name=ntpd state=started
+  ignore_errors: yes
+- name: Gather EC2 Metadata Information for Hostname
+  action: ec2_metadata_facts
+- name: Grab Hostname and set it for the instances
+  action: >-
+    sysctl name=kernel.hostname value=${ansible_ec2_local_hostname}
+    state=present
+- name: Install and enable EPEL rpm package
+  raw: yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+- name: Install haproxy
+  raw: yum install -y --enablerepo=epel haproxy
+- name: Ensure haproxy is started
+  action: service name=haproxy enabled=true state=started

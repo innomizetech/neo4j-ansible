@@ -1,0 +1,59 @@
+- hosts: local
+  name: Launch EC2 Instance
+  connection: local
+  gather_facts: false
+  vars_files:
+    - 'inventories/{{env}}/group_vars/vault.yml'
+    - 'inventories/{{env}}/group_vars/neo4j-single.yml'
+  tasks:    
+    - name: Launch Neo4j Single Instance
+      ec2:
+        key_name: '{{ keypair }}'
+        group_id: '{{ security_group }}'
+        instance_type: '{{ instance_type }}'
+        image: '{{ image }}'
+        vpc_subnet_id: '{{ vpc_az1_subnet_id }}'
+        wait: true
+        exact_count: 1
+        volumes:
+          - device_name: /dev/xvda
+            volume_type: io1
+            volume_size: '{{ volume_size }}'
+            iops: '{{ volumn_iops }}'
+            delete_on_termination: true
+        monitoring: yes
+        instance_tags:
+          Name: '{{ instance_name_tag }}'
+          Neo4JUAT: '{{ instance_name_tag }}'
+        count_tag: Neo4JUAT
+        ec2_url: '{{ ec2_url }}'
+        aws_access_key: '{{ aws_access_key }}'
+        aws_secret_key: '{{ aws_secret_key }}'
+        assign_public_ip: '{{ allow_public_access|bool }}'
+        region: '{{ region }}'
+      register: neo4jEC2
+      when: launch_ec2_instance|bool
+    - name: >-
+        Add new instance to host group
+      add_host:
+        name: '{{ item.public_ip }}'
+        groups: neo4j
+        private_ip: '{{ item.private_ip }}'
+        public_ip: '{{ item.public_ip }}'
+        hostname: '{{ item.public_dns_name }}'
+        ami_launch_index: '{{ item.ami_launch_index }}'
+      with_items: '{{ neo4jEC2.tagged_instances }}'
+      when: launch_ec2_instance|bool
+    - name: Wait for a while before trying to configure instances
+      pause:
+        seconds: 90
+      when: launch_ec2_instance|bool
+- hosts: neo4j
+  name: Install Neo4j Single Server
+  become: yes
+  gather_facts: true
+  vars_files:
+    - 'inventories/{{env}}/group_vars/vault.yml'
+    - 'inventories/{{env}}/group_vars/neo4j-single.yml'
+  roles:
+    - role: neo4j

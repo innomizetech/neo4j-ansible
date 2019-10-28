@@ -1,0 +1,39 @@
+- name: Report
+  local_action: debug msg="Prepare for config file changes"
+- name: Gather EC2 Metadata Information
+  action: ec2_metadata_facts
+  async: 80
+  poll: 5
+- name: Template the config ile to each member of the Neo4j server(s)
+  template:
+    src: './templates/{{ template_file }}'
+    dest: /etc/neo4j/neo4j.conf
+- name: Set an initial password
+  command: neo4j-admin set-initial-password {{ initial_password }}
+  ignore_errors: true
+- name: Allow neo4j user to access to the dbms directory
+  file:
+    path: /var/lib/neo4j/data/dbms/
+    owner: neo4j
+    group: neo4j
+    recurse: yes
+    mode: 0775
+- name: Remove old plugin version if any
+  raw: rm -rf /var/lib/neo4j/plugins/*
+  ignore_errors: yes
+- name: Install apoc plugin
+  get_url:
+    url: 'https://github.com/neo4j-contrib/neo4j-apoc-procedures/releases/download/{{ apoc_version }}/apoc-{{ apoc_version }}-all.jar'
+    dest: /var/lib/neo4j/plugins/
+    force: true
+    owner: neo4j
+    group: neo4j
+    mode: 0775
+- name: Start the Neo4j Service
+  action: service name=neo4j enabled=true state=restarted
+  async: 80
+  poll: 5
+- name: Wait for neo4j service to start 
+  wait_for: 
+    port: 7474
+    timeout: 120
